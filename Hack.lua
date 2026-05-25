@@ -6,7 +6,7 @@ while true do
     game:GetService("ReplicatedStorage").BossSpawnRequest:FireServer(unpack(args1))
     
     -- 2. Wait 2 seconds
-    task.wait(4)
+    task.wait(2)
     
     -- 3. Spawn the Muscle Boss
     local args2 = {
