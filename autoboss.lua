@@ -1,5 +1,4 @@
 -- The core template for our self-replicating auto-rejoin script.
--- %q will be safely replaced by the executor to keep the cycle going forever.
 local ScriptTemplate = [====[
 local queue_on_teleport = queue_on_teleport or queueonteleport or (syn and syn.queue_on_teleport)
 
@@ -34,28 +33,49 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- 3. AUTO-REJOIN LOGIC
+-- 3. AUTO-REJOIN LOGIC (CRASH-PROOF)
 -- ==========================================
 local TeleportService = game:GetService("TeleportService")
-local CoreGui = game:GetService("CoreGui")
+local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 
--- Fallback for full servers
-TeleportService.TeleportInitFailed:Connect(function(player, teleportResult, errorMessage)
-    TeleportService:Teleport(game.PlaceId, player)
-end)
-
-local promptOverlay = CoreGui:WaitForChild("RobloxPromptGui"):WaitForChild("promptOverlay")
-
-promptOverlay.ChildAdded:Connect(function(child)
-    if child.Name == 'ErrorPrompt' then
+local function safeRejoin()
+    pcall(function()
         task.wait(2)
         if game.JobId ~= "" then
             TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, Players.LocalPlayer)
         else
+            -- Failsafe standard teleport if JobId was cleared
             TeleportService:Teleport(game.PlaceId, Players.LocalPlayer)
         end
-    end
+    end)
+end
+
+-- Fallback: If the target server instance is full, hop into any available server
+TeleportService.TeleportInitFailed:Connect(function(player, teleportResult, errorMessage)
+    pcall(function()
+        TeleportService:Teleport(game.PlaceId, player)
+    end)
+end)
+
+-- Engine-level tracking. Catches all kick screens, disconnections, and errors safely.
+GuiService.ErrorMessageChanged:Connect(function(errorMessage)
+    task.spawn(safeRejoin)
+end)
+
+-- Secondary safety net: wrapped entirely in a protected call to guarantee no crashes
+task.spawn(function()
+    pcall(function()
+        local CoreGui = game:GetService("CoreGui")
+        local promptOverlay = CoreGui:WaitForChild("RobloxPromptGui", 5):WaitForChild("promptOverlay", 5)
+        if promptOverlay then
+            promptOverlay.ChildAdded:Connect(function(child)
+                if child.Name == 'ErrorPrompt' then
+                    task.spawn(safeRejoin)
+                end
+            end)
+        end
+    end)
 end)
 ]====]
 
@@ -65,12 +85,10 @@ end)
 local function StartInfiniteRejoin()
     local queue_on_teleport = queue_on_teleport or queueonteleport or (syn and syn.queue_on_teleport)
     
-    -- 1. Queue it up for the very first server hop
     if queue_on_teleport then
         queue_on_teleport(string.format(ScriptTemplate, ScriptTemplate))
     end
     
-    -- 2. Run the code right now for your current session
     loadstring(string.format(ScriptTemplate, ScriptTemplate))()
 end
 
