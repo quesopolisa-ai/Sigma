@@ -1,8 +1,11 @@
 _G.autotp = true;
         while _G.autotp == true do
 
-game:GetService("ReplicatedStorage").BossSpawnRequest:FireServer("White Boss”)
+local args = {
+    [1] = "White Boss"
+}
 
+game:GetService("ReplicatedStorage").BossSpawnRequest:FireServer(unpack(args))
 
-       wait(0)
+       wait(2)
 end
