@@ -1,95 +1,107 @@
--- The core template for our self-replicating auto-rejoin script.
-local ScriptTemplate = [====[
+local fileName = "AutoRejoinSigma.lua"
+
+-- The main script block that will be saved to your device
+local coreScriptContent = [====[
+-- Wait until the game is completely loaded so the mobile executor doesn't crash
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+task.wait(3) -- Safety buffer for mobile devices to stabilize after loading
+
 local queue_on_teleport = queue_on_teleport or queueonteleport or (syn and syn.queue_on_teleport)
 
 -- ==========================================
--- 1. QUEUE FOR THE NEXT REJOIN (INFINITE LOOP)
+-- 1. QUEUE FOR THE NEXT REJOIN (LIGHTWEIGHT)
 -- ==========================================
-local Template = %q
 if queue_on_teleport then
-    -- It injects its own source code into the queue for the NEXT server
-    queue_on_teleport(string.format(Template, Template))
+    pcall(function()
+        -- We pass a tiny, static string that will NEVER corrupt or grow in size
+        queue_on_teleport([[
+            repeat task.wait() until game:IsLoaded()
+            task.wait(3)
+            if isfile and readfile and isfile("AutoRejoinSigma.lua") then
+                loadstring(readfile("AutoRejoinSigma.lua"))()
+            end
+        ]])
+    end)
 end
 
 -- ==========================================
 -- 2. EXECUTE YOUR 3 EXTERNAL SCRIPTS
 -- ==========================================
 task.spawn(function()
-    pcall(function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/quesopolisa-ai/Sigma/refs/heads/main/Hack.lua"))()
-    end)
+    pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/quesopolisa-ai/Sigma/refs/heads/main/Hack.lua"))() end)
 end)
 
 task.spawn(function()
-    pcall(function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/quesopolisa-ai/Sigma/refs/heads/main/Hack2.lua"))()
-    end)
+    pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/quesopolisa-ai/Sigma/refs/heads/main/Hack2.lua"))() end)
 end)
 
 task.spawn(function()
-    pcall(function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/quesopolisa-ai/Sigma/refs/heads/main/Hack3.lua"))()
-    end)
+    pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/quesopolisa-ai/Sigma/refs/heads/main/Hack3.lua"))() end)
 end)
 
 -- ==========================================
--- 3. AUTO-REJOIN LOGIC (CRASH-PROOF)
+-- 3. CRASH-PROOF POLLING REJOIN LOGIC
 -- ==========================================
 local TeleportService = game:GetService("TeleportService")
-local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
 
-local function safeRejoin()
-    pcall(function()
-        task.wait(2)
-        if game.JobId ~= "" then
-            TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, Players.LocalPlayer)
-        else
-            -- Failsafe standard teleport if JobId was cleared
-            TeleportService:Teleport(game.PlaceId, Players.LocalPlayer)
-        end
+-- Full server fallback
+if TeleportService then
+    TeleportService.TeleportInitFailed:Connect(function(player, teleportResult, errorMessage)
+        pcall(function()
+            TeleportService:Teleport(game.PlaceId, player)
+        end)
     end)
 end
 
--- Fallback: If the target server instance is full, hop into any available server
-TeleportService.TeleportInitFailed:Connect(function(player, teleportResult, errorMessage)
-    pcall(function()
-        TeleportService:Teleport(game.PlaceId, player)
-    end)
-end)
-
--- Engine-level tracking. Catches all kick screens, disconnections, and errors safely.
-GuiService.ErrorMessageChanged:Connect(function(errorMessage)
-    task.spawn(safeRejoin)
-end)
-
--- Secondary safety net: wrapped entirely in a protected call to guarantee no crashes
+-- Independent monitoring thread
 task.spawn(function()
-    pcall(function()
-        local CoreGui = game:GetService("CoreGui")
-        local promptOverlay = CoreGui:WaitForChild("RobloxPromptGui", 5):WaitForChild("promptOverlay", 5)
-        if promptOverlay then
-            promptOverlay.ChildAdded:Connect(function(child)
-                if child.Name == 'ErrorPrompt' then
-                    task.spawn(safeRejoin)
+    while task.wait(2) do
+        local detectedKick = false
+        
+        pcall(function()
+            local robloxPromptGui = CoreGui:FindFirstChild("RobloxPromptGui")
+            if robloxPromptGui then
+                local promptOverlay = robloxPromptGui:FindFirstChild("promptOverlay")
+                if promptOverlay and promptOverlay:FindFirstChild("ErrorPrompt") then
+                    detectedKick = true
+                end
+            end
+        end)
+
+        if detectedKick then
+            task.wait(2) -- Let the mobile client settle after getting kicked
+            
+            pcall(function()
+                if game.JobId ~= "" then
+                    TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, Players.LocalPlayer)
+                else
+                    TeleportService:Teleport(game.PlaceId, Players.LocalPlayer)
                 end
             end)
+            
+            break
         end
-    end)
+    end
 end)
 ]====]
 
 -- ==========================================
--- EXECUTE THE INITIAL CHAIN
+-- INITIALIZATION ENGINE (RUNS FIRST TIME)
 -- ==========================================
-local function StartInfiniteRejoin()
-    local queue_on_teleport = queue_on_teleport or queueonteleport or (syn and syn.queue_on_teleport)
-    
-    if queue_on_teleport then
-        queue_on_teleport(string.format(ScriptTemplate, ScriptTemplate))
+local function InitializeSystem()
+    -- Save the file locally to the phone so it can be read seamlessly every single hop
+    if writefile then
+        pcall(function()
+            writefile(fileName, coreScriptContent)
+        end)
     end
     
-    loadstring(string.format(ScriptTemplate, ScriptTemplate))()
+    -- Run it immediately for this session
+    loadstring(coreScriptContent)()
 end
 
-StartInfiniteRejoin()
+InitializeSystem()
