@@ -1,7 +1,7 @@
 -- ==========================================
 -- CONFIGURATION
 -- ==========================================
-local PART_NAME = "str12ic" -- CHANGE THIS to the exact name of the part!
+local PART_NAME = "str14ic" -- CHANGE THIS to the exact name of the part!
 
 -- ==========================================
 -- 1. RESET ONCE AT THE START
