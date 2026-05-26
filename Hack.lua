@@ -12,7 +12,7 @@ if player and player.Character then
 end
 
 -- Wait 3 seconds for your character to respawn before starting the loop
-task.wait(3)
+task.wait(0)
 
 -- ==========================================
 -- 2. THE PERSISTENT BOSS LOOP (2s Cycle)
