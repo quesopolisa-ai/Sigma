@@ -71,8 +71,5 @@ while true do
     -- Spawn the White Boss
     game:GetService("ReplicatedStorage").BossSpawnRequest:FireServer("White Boss")
     task.wait(2)
-
-    -- Spawn the Muscle Boss
-    game:GetService("ReplicatedStorage").BossSpawnRequest:FireServer("Muscle Boss")
-    task.wait(3)
+    
 end
