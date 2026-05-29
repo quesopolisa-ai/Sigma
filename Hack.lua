@@ -64,16 +64,15 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- 3. THE PERSISTENT BOSS LOOP (2s Cycle)
+-- 3. THE PERSISTENT BOSS LOOP (With Delays)
 -- ==========================================
 print("[Boss Loop] Persistent loop started.")
 while true do
-    -- Spawn the White Boss immediately
-    local args1 = {
-        [1] = "White Boss"
-    }
-    game:GetService("ReplicatedStorage").BossSpawnRequest:FireServer(unpack(args1))
-
-    -- Wait 2 seconds to finish the 2 second cycle
+    -- Spawn the White Boss
+    game:GetService("ReplicatedStorage").BossSpawnRequest:FireServer("White Boss")
     task.wait(2)
+
+    -- Spawn the Muscle Boss
+    game:GetService("ReplicatedStorage").BossSpawnRequest:FireServer("Muscle Boss")
+    task.wait(3)
 end
